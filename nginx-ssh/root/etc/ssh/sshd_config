@@ -1,0 +1,39 @@
+Port 22
+ListenAddress 0.0.0.0
+
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+AllowUsers sshtest root
+
+PermitRootLogin yes
+PasswordAuthentication yes
+PubkeyAuthentication yes
+ChallengeResponseAuthentication no
+UsePAM yes
+X11Forwarding no
+PrintMotd no
+
+# StrictModes is not a valid Match-block directive (sshd rejects the config
+# outright if it's placed there), so it has to be set globally even though
+# it's only needed for the 'sshtest' user below. Kubernetes Secret volumes
+# always mount their directory as world-writable (1777) regardless of
+# defaultMode, which StrictModes would otherwise reject with "bad ownership
+# or modes for directory". This is safe to disable for root too: root login
+# here only ever uses the random/SSH_PASSWORD-set password from
+# entrypoint.sh, which StrictModes doesn't gate.
+StrictModes no
+
+PidFile /tmp/sshd.pid
+
+Subsystem sftp /usr/libexec/openssh/sftp-server
+
+# The 'sshtest' user authenticates exclusively via a key supplied at
+# container runtime (e.g. a mounted Kubernetes Secret) rather than a
+# key baked into the image. Pointing AuthorizedKeysFile at a dedicated
+# path outside any home directory avoids sshd's strict ownership/mode
+# checks on ~/.ssh itself.
+Match User sshtest
+    AuthorizedKeysFile /etc/ssh-authorized-keys/authorized_keys
+    PasswordAuthentication no
